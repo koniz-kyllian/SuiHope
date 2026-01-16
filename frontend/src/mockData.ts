@@ -41,7 +41,7 @@ export const CAMPAIGNS = [
         targetAmount: 2000,
         currentAmount: 1950,
         daysLeft: 3,
-        image: "https://images.unsplash.com/photo-1583255955030-a94f6e3c0b11?q=80&w=2671&auto=format&fit=crop",
+        image: "https://images.unsplash.com/photo-1541252260730-0412e8e2108e?q=80&w=2574&auto=format&fit=crop",
         category: "Môi trường",
         milestones: []
     }

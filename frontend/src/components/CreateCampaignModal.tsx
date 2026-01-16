@@ -1,6 +1,6 @@
 import { X, Upload, Coins, Type, Image as ImageIcon } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner'; // Import toast
+import { toast } from 'sonner';
 
 interface CreateCampaignModalProps {
   isOpen: boolean;
@@ -17,37 +17,39 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
     category: 'Education'
   });
 
-  // State quản lý trạng thái đang tải (Loading)
+  // State quản lý trạng thái
   const [isLoading, setIsLoading] = useState(false);
+  const [imageError, setImageError] = useState(false); // Thêm state check lỗi ảnh
 
   // Hàm xử lý khi bấm nút Tạo
   const handleCreate = async () => {
-    // 1. Validate: Kiểm tra dữ liệu đầu vào
+    // 1. Validate
     if (!formData.title || !formData.target || !formData.description) {
-        toast.error("Vui lòng điền đầy đủ thông tin!", {
-            description: "Tên chiến dịch, mục tiêu và mô tả không được để trống."
+        toast.error("Thiếu thông tin!", {
+            description: "Vui lòng điền đầy đủ tên, mục tiêu và mô tả."
         });
         return;
     }
 
     if (Number(formData.target) <= 0) {
-        toast.warning("Mục tiêu gây quỹ phải lớn hơn 0");
+        toast.warning("Mục tiêu không hợp lệ", {
+            description: "Số tiền gây quỹ phải lớn hơn 0."
+        });
         return;
     }
 
-    // 2. Bắt đầu xử lý (Loading)
+    // 2. Bắt đầu xử lý
     setIsLoading(true);
 
-    // 3. Giả lập gọi Smart Contract (Sau này thay bằng code blockchain thật)
-    // Dùng Promise để giả lập độ trễ 2 giây
+    // 3. Giả lập gọi Smart Contract
     const createPromise = new Promise((resolve) => setTimeout(resolve, 2000));
 
     toast.promise(createPromise, {
         loading: 'Đang khởi tạo Smart Contract...',
         success: () => {
             setIsLoading(false);
-            onClose(); // Đóng modal
-            // Reset form về mặc định
+            onClose();
+            // Reset form
             setFormData({
                 title: '',
                 description: '',
@@ -55,6 +57,7 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
                 image: '',
                 category: 'Education'
             });
+            setImageError(false);
             return `Chiến dịch "${formData.title}" đã được tạo thành công!`;
         },
         error: () => {
@@ -64,18 +67,24 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
     });
   };
 
+  // Reset lỗi ảnh khi người dùng nhập link mới
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData({...formData, image: e.target.value});
+      setImageError(false);
+  }
+
   if (!isOpen) return null;
 
   return (
-    // 1. Lớp nền tối mờ (Overlay)
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    // Overlay
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       
-      {/* 2. Modal Container */}
-      <div className="relative w-full max-w-2xl bg-[#1a1c29] border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      {/* Modal Container: w-[95%] để không dính lề trên Mobile */}
+      <div className="relative w-[95%] md:w-full max-w-2xl bg-[#1a1c29] border border-white/10 rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-white/10 bg-white/5">
-          <h2 className="text-2xl font-bold text-white">Khởi tạo Chiến dịch</h2>
+        <div className="flex justify-between items-center p-4 md:p-6 border-b border-white/10 bg-white/5 shrink-0">
+          <h2 className="text-xl md:text-2xl font-bold text-white">Khởi tạo Chiến dịch</h2>
           <button 
             onClick={onClose}
             disabled={isLoading}
@@ -85,8 +94,8 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
           </button>
         </div>
 
-        {/* Body Form */}
-        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        {/* Body Form - Scrollable */}
+        <div className="p-4 md:p-8 space-y-4 md:space-y-6 overflow-y-auto custom-scrollbar flex-1">
           
           {/* Input Title */}
           <div className="space-y-2">
@@ -104,14 +113,16 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Input Target Amount */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            {/* Input Target */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300 ml-1">Mục tiêu (SUI)</label>
               <div className="relative">
                 <Coins className="absolute left-4 top-3.5 text-gray-500" size={20} />
                 <input 
                   type="number"
+                  min="0"
+                  step="any"
                   disabled={isLoading}
                   placeholder="0.00"
                   className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
@@ -126,7 +137,7 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
               <label className="text-sm font-medium text-gray-300 ml-1">Danh mục</label>
               <select 
                 disabled={isLoading}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none disabled:opacity-50"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none disabled:opacity-50 cursor-pointer"
                 value={formData.category}
                 onChange={(e) => setFormData({...formData, category: e.target.value})}
               >
@@ -149,18 +160,30 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
                 placeholder="https://..."
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
                 value={formData.image}
-                onChange={(e) => setFormData({...formData, image: e.target.value})}
+                onChange={handleImageChange}
               />
             </div>
-            {/* Image Preview - Nếu có link thì hiện ảnh */}
-            {formData.image && (
-                <div className="mt-2 h-40 w-full rounded-xl overflow-hidden border border-white/10">
-                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+            
+            {/* Image Preview có xử lý lỗi */}
+            {formData.image && !imageError && (
+                <div className="mt-2 h-40 w-full rounded-xl overflow-hidden border border-white/10 relative group">
+                    <img 
+                        src={formData.image} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                        onError={() => setImageError(true)} // Nếu link lỗi thì ẩn đi
+                    />
+                    <div className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center text-xs text-white">
+                        Xem trước ảnh bìa
+                    </div>
                 </div>
+            )}
+            {imageError && (
+                <p className="text-xs text-red-400 ml-1 mt-1">Link ảnh không hoạt động hoặc không tồn tại.</p>
             )}
           </div>
 
-          {/* Textarea Description */}
+          {/* Description */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300 ml-1">Câu chuyện của bạn</label>
             <textarea 
@@ -172,11 +195,10 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
               onChange={(e) => setFormData({...formData, description: e.target.value})}
             />
           </div>
-
         </div>
 
         {/* Footer Actions */}
-        <div className="p-6 border-t border-white/10 bg-white/5 flex gap-4">
+        <div className="p-4 md:p-6 border-t border-white/10 bg-white/5 flex gap-4 shrink-0">
           <button 
             onClick={onClose}
             disabled={isLoading}
@@ -186,20 +208,19 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
           </button>
           
           <button 
-            onClick={handleCreate} // Gắn hàm xử lý vào đây
-            disabled={isLoading} // Disable nút khi đang loading
+            onClick={handleCreate} 
+            disabled={isLoading} 
             className="flex-[2] py-3 px-6 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
                 <>
-                    {/* Icon Loading xoay tròn */}
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Đang xử lý...
+                    <span>Đang xử lý...</span>
                 </>
             ) : (
                 <>
                     <Upload size={20} />
-                    Tạo Chiến Dịch
+                    <span>Tạo Chiến Dịch</span>
                 </>
             )}
           </button>

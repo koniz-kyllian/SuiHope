@@ -1,0 +1,13 @@
+@import "tailwindcss";
+/* Setup Font và Background nền tối cho Glassmorphism nổi bật */
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color-scheme: dark; 
+}
+
+body {
+  /* Background Gradient tối màu để hiệu ứng kính (Glass) nổi lên */
+  background: radial-gradient(circle at 50% 10%, #1a1c29 0%, #0d0e12 100%);
+  color: #e2e8f0;
+  min-height: 100vh;
+}

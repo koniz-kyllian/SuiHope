@@ -35,13 +35,19 @@ export default function CampaignDetails() {
         toast.error("Vui lòng kết nối ví!");
         return;
     }
+    if (!REAL_CAMPAIGN_ID) {
+        toast.error("Dự án này chỉ là Demo hiển thị (Chưa deploy on-chain).", {
+            description: "Vui lòng chọn dự án 'Nước sạch Buôn Đôn' để test chức năng Donate thật."
+        });
+        return;
+    }
     if (!amount || Number(amount) <= 0) {
         toast.warning("Số tiền không hợp lệ!");
         return;
     }
 
-    // Kiểm tra xem người dùng đã thay ID chưa (để tránh lỗi ngớ ngẩn)
-    if (REAL_CAMPAIGN_ID.includes("DÁN_ID")) {
+    // Kiểm tra xem người dùng đã thay ID chưa
+    if (REAL_CAMPAIGN_ID.includes("BGqMbCkmhCfs1tx1fdxcXrjSHEMjqq49okwu1tR6z8KG")) {
         toast.error("Lỗi Demo: Bạn chưa điền ID Campaign vào code!");
         console.error("Vui lòng mở file CampaignDetails.tsx và điền ID vào biến REAL_CAMPAIGN_ID");
         return;

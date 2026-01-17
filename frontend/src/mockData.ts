@@ -6,7 +6,7 @@ export const CAMPAIGNS = [
       organizer: "Kyllian",
       description: "Test Hackathon SuiHope",
       fullDescription: "Test",
-      objectId: "BGqMbCkmhCfs1tx1fdxcXrjSHEMjqq49okwu1tR6z8KG",
+      objectId: "0xaf01af097dac9d2a0ec77675903c361af61185795ddae63d3438027482f0c211",
       targetAmount: 1000,
       currentAmount: 0,
       daysLeft: 12,

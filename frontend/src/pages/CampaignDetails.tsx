@@ -23,7 +23,7 @@ export default function CampaignDetails() {
   // --- QUAN TRỌNG: ID CỦA CHIẾN DỊCH TRÊN BLOCKCHAIN ---
   // Để Demo, bạn hãy dán ID của chiến dịch bạn vừa tạo vào đây.
   // Ví dụ: const REAL_CAMPAIGN_ID = "0x1234...5678";
-  const REAL_CAMPAIGN_ID = "BGqMbCkmhCfs1tx1fdxcXrjSHEMjqq49okwu1tR6z8KG"; 
+  const REAL_CAMPAIGN_ID = "0xaf01af097dac9d2a0ec77675903c361af61185795ddae63d3438027482f0c211"; 
 
   if (!campaign) return <div className="text-white text-center pt-40">Không tìm thấy dự án!</div>;
 
@@ -47,7 +47,7 @@ export default function CampaignDetails() {
     }
 
     // Kiểm tra xem người dùng đã thay ID chưa
-    if (REAL_CAMPAIGN_ID.includes("BGqMbCkmhCfs1tx1fdxcXrjSHEMjqq49okwu1tR6z8KG")) {
+    if (REAL_CAMPAIGN_ID.includes("0xaf01af097dac9d2a0ec77675903c361af61185795ddae63d3438027482f0c211")) {
         toast.error("Lỗi Demo: Bạn chưa điền ID Campaign vào code!");
         console.error("Vui lòng mở file CampaignDetails.tsx và điền ID vào biến REAL_CAMPAIGN_ID");
         return;

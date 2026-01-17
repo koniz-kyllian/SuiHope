@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 // 1. IMPORT CÁC THƯ VIỆN SUI
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
-import { PACKAGE_ID, MODULE_NAME } from '../../constants'; // Import từ file constants
+// Sửa đường dẫn import: '../constants' thay vì '../../constants' (nếu file constants nằm trong src)
+import { PACKAGE_ID, MODULE_NAME } from '../../constants'; 
 
 export default function CampaignDetails() {
   const { id } = useParams();
@@ -20,10 +21,10 @@ export default function CampaignDetails() {
   const account = useCurrentAccount();
   const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
 
-  // --- QUAN TRỌNG: ID CỦA CHIẾN DỊCH TRÊN BLOCKCHAIN ---
-  // Để Demo, bạn hãy dán ID của chiến dịch bạn vừa tạo vào đây.
-  // Ví dụ: const REAL_CAMPAIGN_ID = "0x1234...5678";
-  const REAL_CAMPAIGN_ID = "0xaf01af097dac9d2a0ec77675903c361af61185795ddae63d3438027482f0c211"; 
+  // --- QUAN TRỌNG: SỬA LẠI ID Ở ĐÂY ---
+  // Bạn phải dùng ID bắt đầu bằng "0x..." (Lấy từ cột Shared Object ID hoặc Created Object ID trên SuiScan)
+  // Dựa vào ảnh bạn gửi trước đó, ID đúng bắt đầu là 0xaf01...
+  const REAL_CAMPAIGN_ID = campaign?.objectId || "0xaf01af097dac9d2a0ec77675903c361af61185795ddae63d3438027482f0c211"; 
 
   if (!campaign) return <div className="text-white text-center pt-40">Không tìm thấy dự án!</div>;
 
@@ -35,21 +36,17 @@ export default function CampaignDetails() {
         toast.error("Vui lòng kết nối ví!");
         return;
     }
-    if (!REAL_CAMPAIGN_ID) {
-        toast.error("Dự án này chỉ là Demo hiển thị (Chưa deploy on-chain).", {
-            description: "Vui lòng chọn dự án 'Nước sạch Buôn Đôn' để test chức năng Donate thật."
-        });
-        return;
-    }
+    
     if (!amount || Number(amount) <= 0) {
         toast.warning("Số tiền không hợp lệ!");
         return;
     }
 
-    // Kiểm tra xem người dùng đã thay ID chưa
-    if (REAL_CAMPAIGN_ID.includes("0xaf01af097dac9d2a0ec77675903c361af61185795ddae63d3438027482f0c211")) {
-        toast.error("Lỗi Demo: Bạn chưa điền ID Campaign vào code!");
-        console.error("Vui lòng mở file CampaignDetails.tsx và điền ID vào biến REAL_CAMPAIGN_ID");
+    // Kiểm tra định dạng ID (Phải bắt đầu bằng 0x)
+    if (!REAL_CAMPAIGN_ID.startsWith("0x")) {
+        toast.error("Lỗi ID: ID Chiến dịch sai định dạng!", {
+             description: "ID phải bắt đầu bằng '0x'. Bạn có thể đang copy nhầm Transaction Digest."
+        });
         return;
     }
 
@@ -62,7 +59,6 @@ export default function CampaignDetails() {
         const amountInMist = Number(amount) * 1_000_000_000;
 
         // 3. Tách tiền từ ví ra (Split Coin)
-        // Lấy đồng tiền Gas, cắt ra một phần bằng amountInMist
         const [coinToDonate] = tx.splitCoins(tx.gas, [tx.pure.u64(amountInMist)]);
 
         // 4. Gọi hàm donate trên Smart Contract

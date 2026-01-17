@@ -1,6 +1,10 @@
 import { X, Upload, Coins, Type, Image as ImageIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+// 1. Import các thư viện của Sui
+import { useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
+import { PACKAGE_ID, MODULE_NAME, FUNCTION_NAME } from '../../constants'; // Import ID từ file constants
 
 interface CreateCampaignModalProps {
   isOpen: boolean;
@@ -17,57 +21,72 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
     category: 'Education'
   });
 
-  // State quản lý trạng thái
   const [isLoading, setIsLoading] = useState(false);
-  const [imageError, setImageError] = useState(false); // Thêm state check lỗi ảnh
+  const [imageError, setImageError] = useState(false);
 
-  // Hàm xử lý khi bấm nút Tạo
+  // 2. Hook để ký và gửi giao dịch (Thay thế cho setTimeout)
+  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+
   const handleCreate = async () => {
-    // 1. Validate
+    // Validate dữ liệu
     if (!formData.title || !formData.target || !formData.description) {
-        toast.error("Thiếu thông tin!", {
-            description: "Vui lòng điền đầy đủ tên, mục tiêu và mô tả."
-        });
+        toast.error("Thiếu thông tin!", { description: "Vui lòng nhập đầy đủ các trường." });
         return;
     }
 
     if (Number(formData.target) <= 0) {
-        toast.warning("Mục tiêu không hợp lệ", {
-            description: "Số tiền gây quỹ phải lớn hơn 0."
-        });
+        toast.warning("Mục tiêu không hợp lệ");
         return;
     }
 
-    // 2. Bắt đầu xử lý
     setIsLoading(true);
 
-    // 3. Giả lập gọi Smart Contract
-    const createPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+        // 3. Tạo Transaction Block (Gói lệnh gửi lên blockchain)
+        const tx = new Transaction();
 
-    toast.promise(createPromise, {
-        loading: 'Đang khởi tạo Smart Contract...',
-        success: () => {
-            setIsLoading(false);
-            onClose();
-            // Reset form
-            setFormData({
-                title: '',
-                description: '',
-                target: '',
-                image: '',
-                category: 'Education'
-            });
-            setImageError(false);
-            return `Chiến dịch "${formData.title}" đã được tạo thành công!`;
-        },
-        error: () => {
-            setIsLoading(false);
-            return 'Có lỗi xảy ra, vui lòng thử lại';
-        },
-    });
+        // Gọi hàm create_campaign trong Smart Contract
+        tx.moveCall({
+            target: `${PACKAGE_ID}::${MODULE_NAME}::${FUNCTION_NAME}`,
+            arguments: [
+                tx.pure.string(formData.title),        // Tên chiến dịch (String)
+                tx.pure.u64(Number(formData.target)),  // Mục tiêu (u64)
+            ],
+        });
+
+        // 4. Gửi lệnh đi và chờ xác nhận
+        signAndExecuteTransaction(
+            { transaction: tx },
+            {
+                onSuccess: (result) => {
+                    console.log('Thành công:', result);
+                    toast.success("Đã tạo chiến dịch trên Blockchain!", {
+                        description: `Mã giao dịch: ${result.digest.slice(0, 10)}...`
+                    });
+                    
+                    setIsLoading(false);
+                    onClose();
+                    // Reset form
+                    setFormData({ title: '', description: '', target: '', image: '', category: 'Education' });
+                    setImageError(false);
+                },
+                onError: (error) => {
+                    console.error('Lỗi:', error);
+                    toast.error("Giao dịch thất bại", {
+                        description: error.message || "Vui lòng thử lại sau."
+                    });
+                    setIsLoading(false);
+                },
+            }
+        );
+
+    } catch (err) {
+        console.error(err);
+        setIsLoading(false);
+        toast.error("Lỗi khởi tạo giao dịch");
+    }
   };
 
-  // Reset lỗi ảnh khi người dùng nhập link mới
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setFormData({...formData, image: e.target.value});
       setImageError(false);
@@ -76,7 +95,6 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
   if (!isOpen) return null;
 
   return (
-    // Overlay
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       
       {/* Modal Container: w-[95%] để không dính lề trên Mobile */}
@@ -84,12 +102,8 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
         
         {/* Header */}
         <div className="flex justify-between items-center p-4 md:p-6 border-b border-white/10 bg-white/5 shrink-0">
-          <h2 className="text-xl md:text-2xl font-bold text-white">Khởi tạo Chiến dịch</h2>
-          <button 
-            onClick={onClose}
-            disabled={isLoading}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white disabled:opacity-50"
-          >
+          <h2 className="text-xl md:text-2xl font-bold text-white">Khởi tạo Chiến dịch (On-chain)</h2>
+          <button onClick={onClose} disabled={isLoading} className="p-2 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white disabled:opacity-50">
             <X size={24} />
           </button>
         </div>
@@ -102,125 +116,73 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
             <label className="text-sm font-medium text-gray-300 ml-1">Tên chiến dịch</label>
             <div className="relative">
               <Type className="absolute left-4 top-3.5 text-gray-500" size={20} />
-              <input 
-                type="text"
-                disabled={isLoading}
-                placeholder="VD: Xây trường cho em..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
-                value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
+              <input type="text" disabled={isLoading} placeholder="VD: Xây trường cho em..." className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all disabled:opacity-50"
+                value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {/* Input Target */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300 ml-1">Mục tiêu (SUI)</label>
               <div className="relative">
                 <Coins className="absolute left-4 top-3.5 text-gray-500" size={20} />
-                <input 
-                  type="number"
-                  min="0"
-                  step="any"
-                  disabled={isLoading}
-                  placeholder="0.00"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
-                  value={formData.target}
-                  onChange={(e) => setFormData({...formData, target: e.target.value})}
+                <input type="number" min="0" disabled={isLoading} placeholder="0.00" className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all disabled:opacity-50"
+                  value={formData.target} onChange={(e) => setFormData({...formData, target: e.target.value})}
                 />
               </div>
             </div>
 
-            {/* Select Category */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300 ml-1">Danh mục</label>
-              <select 
-                disabled={isLoading}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all appearance-none disabled:opacity-50 cursor-pointer"
-                value={formData.category}
-                onChange={(e) => setFormData({...formData, category: e.target.value})}
+              <select disabled={isLoading} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition-all appearance-none disabled:opacity-50 cursor-pointer"
+                value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})}
               >
                 <option value="Education" className="bg-[#1a1c29]">Giáo dục</option>
                 <option value="Emergency" className="bg-[#1a1c29]">Khẩn cấp</option>
-                <option value="Environment" className="bg-[#1a1c29]">Môi trường</option>
                 <option value="Medical" className="bg-[#1a1c29]">Y tế</option>
               </select>
             </div>
           </div>
 
-          {/* Input Image URL */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300 ml-1">Link ảnh bìa (URL)</label>
             <div className="relative">
               <ImageIcon className="absolute left-4 top-3.5 text-gray-500" size={20} />
-              <input 
-                type="text"
-                disabled={isLoading}
-                placeholder="https://..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
-                value={formData.image}
-                onChange={handleImageChange}
+              <input type="text" disabled={isLoading} placeholder="https://..." className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all disabled:opacity-50"
+                value={formData.image} onChange={handleImageChange}
               />
             </div>
-            
-            {/* Image Preview có xử lý lỗi */}
             {formData.image && !imageError && (
                 <div className="mt-2 h-40 w-full rounded-xl overflow-hidden border border-white/10 relative group">
-                    <img 
-                        src={formData.image} 
-                        alt="Preview" 
-                        className="w-full h-full object-cover"
-                        onError={() => setImageError(true)} // Nếu link lỗi thì ẩn đi
-                    />
-                    <div className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center text-xs text-white">
-                        Xem trước ảnh bìa
-                    </div>
+                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" onError={() => setImageError(true)} />
                 </div>
             )}
-            {imageError && (
-                <p className="text-xs text-red-400 ml-1 mt-1">Link ảnh không hoạt động hoặc không tồn tại.</p>
-            )}
+            {imageError && <p className="text-xs text-red-400 ml-1 mt-1">Link ảnh lỗi.</p>}
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300 ml-1">Câu chuyện của bạn</label>
-            <textarea 
-              rows={4}
-              disabled={isLoading}
-              placeholder="Kể chi tiết về hoàn cảnh và kế hoạch sử dụng vốn..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none disabled:opacity-50"
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
+            <textarea rows={4} disabled={isLoading} placeholder="Kể chi tiết về hoàn cảnh..." className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none disabled:opacity-50"
+              value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
             />
           </div>
         </div>
 
         {/* Footer Actions */}
         <div className="p-4 md:p-6 border-t border-white/10 bg-white/5 flex gap-4 shrink-0">
-          <button 
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1 py-3 px-6 rounded-xl font-medium text-gray-300 hover:bg-white/5 transition-colors disabled:opacity-50"
-          >
-            Hủy bỏ
-          </button>
+          <button onClick={onClose} disabled={isLoading} className="flex-1 py-3 px-6 rounded-xl font-medium text-gray-300 hover:bg-white/5 transition-colors disabled:opacity-50">Hủy bỏ</button>
           
-          <button 
-            onClick={handleCreate} 
-            disabled={isLoading} 
-            className="flex-[2] py-3 px-6 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-          >
+          <button onClick={handleCreate} disabled={isLoading} className="flex-[2] py-3 px-6 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
             {isLoading ? (
                 <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Đang xử lý...</span>
+                    <span>Đang ký ví...</span>
                 </>
             ) : (
                 <>
                     <Upload size={20} />
-                    <span>Tạo Chiến Dịch</span>
+                    <span>Tạo & Ký (On-chain)</span>
                 </>
             )}
           </button>

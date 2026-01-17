@@ -3,72 +3,98 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Clock, ShieldCheck, CheckCircle2, Circle, Share2, Wallet } from 'lucide-react';
 import { CAMPAIGNS } from '../mockData';
 import Navbar from '../components/Navbar';
-import { toast } from 'sonner'; // Import thông báo
-import { useCurrentAccount } from '@mysten/dapp-kit'; // Hook của Sui
+import { toast } from 'sonner';
 
+// 1. IMPORT CÁC THƯ VIỆN SUI
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
+import { PACKAGE_ID, MODULE_NAME } from '../../constants'; // Import từ file constants
 
 export default function CampaignDetails() {
   const { id } = useParams();
   const campaign = CAMPAIGNS.find(c => c.id === Number(id));
   
-  // State quản lý số tiền nhập vào
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Lấy thông tin ví
   const account = useCurrentAccount();
+  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+
+  // --- QUAN TRỌNG: ID CỦA CHIẾN DỊCH TRÊN BLOCKCHAIN ---
+  // Để Demo, bạn hãy dán ID của chiến dịch bạn vừa tạo vào đây.
+  // Ví dụ: const REAL_CAMPAIGN_ID = "0x1234...5678";
+  const REAL_CAMPAIGN_ID = "BGqMbCkmhCfs1tx1fdxcXrjSHEMjqq49okwu1tR6z8KG"; 
 
   if (!campaign) return <div className="text-white text-center pt-40">Không tìm thấy dự án!</div>;
 
   const percentage = Math.min((campaign.currentAmount / campaign.targetAmount) * 100, 100);
 
-  // Hàm xử lý quyên góp
-  const handleDonate = () => {
-    // 1. Kiểm tra đã kết nối ví chưa
+  const handleDonate = async () => {
+    // 1. Kiểm tra cơ bản
     if (!account) {
-        toast.error("Vui lòng kết nối ví để quyên góp!");
+        toast.error("Vui lòng kết nối ví!");
+        return;
+    }
+    if (!amount || Number(amount) <= 0) {
+        toast.warning("Số tiền không hợp lệ!");
         return;
     }
 
-    // 2. Kiểm tra số tiền hợp lệ
-    if (!amount || Number(amount) <= 0) {
-        toast.warning("Vui lòng nhập số tiền hợp lệ!");
+    // Kiểm tra xem người dùng đã thay ID chưa (để tránh lỗi ngớ ngẩn)
+    if (REAL_CAMPAIGN_ID.includes("DÁN_ID")) {
+        toast.error("Lỗi Demo: Bạn chưa điền ID Campaign vào code!");
+        console.error("Vui lòng mở file CampaignDetails.tsx và điền ID vào biến REAL_CAMPAIGN_ID");
         return;
     }
 
     setIsLoading(true);
-    
-    // --- BẮT ĐẦU LOGIC SUI BLOCKCHAIN (MÔ PHỎNG) ---
-    // Vì chưa có Smart Contract thật, ta sẽ giả lập một giao dịch thành công sau 2 giây
-    // Khi có Contract, bạn sẽ dùng `tx.moveCall(...)` ở đây.
-    
-    setTimeout(() => {
-        setIsLoading(false);
-        toast.success(`Đã quyên góp thành công ${amount} SUI!`, {
-            description: "Cảm ơn tấm lòng vàng của bạn. Transaction Hash: 0x123...abc",
-            duration: 5000,
-        });
-        setAmount(''); // Reset ô nhập
-    }, 2000);
 
-    /* ĐOẠN CODE THẬT SAU NÀY SẼ DÙNG:
-    const tx = new Transaction();
-    const [coin] = tx.splitCoins(tx.gas, [tx.pure(Number(amount) * 1_000_000_000)]);
-    tx.transferObjects([coin], campaign.organizerAddress);
-    
-    signAndExecuteTransaction({
-        transaction: tx,
-    }, {
-        onSuccess: (result) => {
-            toast.success("Quyên góp thành công!");
-            setIsLoading(false);
-        },
-        onError: (err) => {
-            toast.error("Giao dịch thất bại: " + err.message);
-            setIsLoading(false);
-        }
-    });
-    */
+    try {
+        const tx = new Transaction();
+
+        // 2. Đổi SUI sang MIST (1 SUI = 1 tỷ MIST)
+        const amountInMist = Number(amount) * 1_000_000_000;
+
+        // 3. Tách tiền từ ví ra (Split Coin)
+        // Lấy đồng tiền Gas, cắt ra một phần bằng amountInMist
+        const [coinToDonate] = tx.splitCoins(tx.gas, [tx.pure.u64(amountInMist)]);
+
+        // 4. Gọi hàm donate trên Smart Contract
+        tx.moveCall({
+            target: `${PACKAGE_ID}::${MODULE_NAME}::donate`,
+            arguments: [
+                tx.object(REAL_CAMPAIGN_ID), // ID chiến dịch nhận tiền
+                coinToDonate,                // Đồng tiền vừa cắt ra
+            ],
+        });
+
+        // 5. Ký và gửi
+        signAndExecuteTransaction(
+            { transaction: tx },
+            {
+                onSuccess: (result) => {
+                    console.log("Donate success:", result);
+                    toast.success(`Đã quyên góp thành công ${amount} SUI!`, {
+                        description: `Mã giao dịch: ${result.digest.slice(0, 10)}...`
+                    });
+                    setIsLoading(false);
+                    setAmount('');
+                },
+                onError: (err) => {
+                    console.error("Donate failed:", err);
+                    toast.error("Quyên góp thất bại", {
+                        description: err.message
+                    });
+                    setIsLoading(false);
+                }
+            }
+        );
+
+    } catch (error) {
+        console.error(error);
+        toast.error("Lỗi khởi tạo giao dịch");
+        setIsLoading(false);
+    }
   };
 
   return (
@@ -83,7 +109,7 @@ export default function CampaignDetails() {
         </Link>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* CỘT TRÁI - GIỮ NGUYÊN */}
+          {/* CỘT TRÁI - GIỮ NGUYÊN UI */}
           <div className="lg:col-span-2 space-y-8">
             <div className="rounded-3xl overflow-hidden shadow-2xl border border-white/10 aspect-video relative group">
                <img src={campaign.image} alt={campaign.title} className="w-full h-full object-cover"/>
@@ -134,7 +160,7 @@ export default function CampaignDetails() {
             </div>
           </div>
 
-          {/* CỘT PHẢI - CẬP NHẬT PHẦN NÀY */}
+          {/* CỘT PHẢI - UPDATE LOGIC */}
           <div className="lg:col-span-1">
             <div className="sticky top-28 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
               
@@ -164,17 +190,19 @@ export default function CampaignDetails() {
                       placeholder="0.0"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl py-4 pl-4 pr-16 text-xl text-white font-bold focus:outline-none focus:border-blue-500 transition-all"
+                      disabled={isLoading}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl py-4 pl-4 pr-16 text-xl text-white font-bold focus:outline-none focus:border-blue-500 transition-all disabled:opacity-50"
                     />
                     <span className="absolute right-4 top-4 font-bold text-gray-500">SUI</span>
                  </div>
                  
                  <div className="grid grid-cols-3 gap-2">
-                    {[10, 50, 100].map(val => (
+                    {[1, 5, 10].map(val => ( // Giảm số SUI gợi ý xuống cho hợp lý với Testnet
                        <button 
                         key={val} 
                         onClick={() => setAmount(val.toString())}
-                        className="py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors border border-white/5"
+                        disabled={isLoading}
+                        className="py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors border border-white/5 disabled:opacity-50"
                        >
                           {val} SUI
                        </button>
@@ -189,7 +217,7 @@ export default function CampaignDetails() {
                     {isLoading ? (
                         <>
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Đang xử lý...
+                            Đang ký ví...
                         </>
                     ) : (
                         <>
@@ -200,7 +228,7 @@ export default function CampaignDetails() {
                  </button>
 
                  <p className="text-xs text-center text-gray-500 mt-4">
-                    *Tiền của bạn sẽ được khóa trong Smart Contract và chỉ giải ngân khi có bằng chứng xác thực.
+                    *Tiền của bạn sẽ được chuyển thẳng vào Smart Contract trên Testnet.
                  </p>
               </div>
 

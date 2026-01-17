@@ -2,8 +2,8 @@
 export const CAMPAIGNS = [
     {
       id: 1,
-      title: "Xây trường vùng cao Hà Giang",
-      organizer: "Quỹ Trò Nghèo",
+      title: "Test Hackathon",
+      organizer: "Kyllian",
       description: "Dự án xây dựng 5 phòng học kiên cố cho điểm trường Lũng Cú, giúp 200 em nhỏ có nơi học tập an toàn.",
       fullDescription: "Trường hiện tại được dựng tạm bằng tre nứa, mùa đông gió lùa rất lạnh. Dự án dự kiến xây 5 phòng học kiên cố, 1 phòng công vụ cho giáo viên và khu vệ sinh khép kín.\n\nChúng tôi cam kết minh bạch toàn bộ quá trình mua vật liệu. Mỗi giai đoạn đều sẽ được chụp ảnh và upload lên Blockchain.",
       targetAmount: 5000,
